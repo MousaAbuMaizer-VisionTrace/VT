@@ -197,7 +197,7 @@ def send_image(id, filename):
         print(f"Error sending image: {e}")
         return "Image not found", 404
 
-@app.route('/vision_trace', methods=['POST'])
+@app.route('/app/process', methods=['POST'])
 async def vision_trace():
     data = request.get_json(force=True)
 
