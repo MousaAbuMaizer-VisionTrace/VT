@@ -253,7 +253,7 @@ async def vision_trace():
         if image_path is not None:
             relative_path = os.path.join('vision_trace', id, os.path.basename(max_voxel_img_path)).replace('\\', '/')
             response.update({
-                'tumor_image_link': f"http://127.0.0.1:5000/{relative_path}"
+                'tumor_image_link': f"http://35.188.12.148/{relative_path}"
             })
         else:
             response.update({
