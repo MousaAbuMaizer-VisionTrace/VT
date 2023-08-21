@@ -251,7 +251,7 @@ def vision_trace():
         response = {}
 
         if image_path is not None:
-            relative_path = os.path.join('vision_trace', id, os.path.basename(max_voxel_img_path)).replace('\\', '/')
+            relative_path = os.path.join('app/process', id, os.path.basename(max_voxel_img_path)).replace('\\', '/')
             response.update({
                 'tumor_image_link': f"http://35.188.12.148/{relative_path}"
             })
