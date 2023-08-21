@@ -196,7 +196,7 @@ def send_image(id, filename):
         return "Image not found", 404
 
 @app.route('/app/process', methods=['POST'])
-async def vision_trace():
+def vision_trace():
     data = request.get_json(force=True)
 
     if 'id' not in data or 'zip_file_path' not in data:
