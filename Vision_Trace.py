@@ -184,13 +184,13 @@ def built_unet_model(img_size, num_classes):
 #########################################################################
 
 ############################# Flask Code ################################
-app = Flask(__name__, static_folder='/var/www/html/VT/Processed-Scans')
+app = Flask(__name__, static_folder='/var/www/html/Vision_Trace/Processed-Scans')
 
 @app.route('/app/process/<id>/<filename>', methods=['GET'])
 def send_image(id, filename):
     print(f"Attempting to send image for ID: {id}, Filename: {filename}")  # This will log in the console
     try:
-        return send_from_directory(os.path.join('/var/www/html/VT/Processed-Scans', id), filename)
+        return send_from_directory(os.path.join('/var/www/html/Vision_Trace/Processed-Scans', id), filename)
     except Exception as e:
         print(f"Error sending image: {e}")
         return "Image not found", 404
@@ -204,7 +204,7 @@ async def vision_trace():
 
     id = data['id']
     zip_file_path = data['zip_file_path']
-    root_folder = os.path.join('/var/www/html/VT/Scans', id)
+    root_folder = os.path.join('/var/www/html/Vision_Trace/Scans', id)
 
     # Ensure the directory exists
     if not os.path.exists(root_folder):
@@ -235,13 +235,13 @@ async def vision_trace():
     images_folder = potential_subfolder if os.path.exists(potential_subfolder) else root_folder
 
     # Set the output_folder directly to the id
-    output_folder = os.path.join('/var/www/html/VT/Processed-Scans', id)
+    output_folder = os.path.join('/var/www/html/Vision_Trace/Processed-Scans', id)
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
 
     try:
-        classification_model_path = '/var/www/html/VT/Model_Save_Weight/Classification_model.hdf5'
-        segmentation_model_path = '/var/www/html/VT/Model_Save_Weight/Segmentation_model.hdf5'
+        classification_model_path = '/var/www/html/Vision_Trace/Model_Save_Weight/Classification_model.hdf5'
+        segmentation_model_path = '/var/www/html/Vision_Trace/Model_Save_Weight/Segmentation_model.hdf5'
 
         tumor_image_paths = classify_images_batch(images_folder, classification_model_path)
         max_voxel_img_path = predict_images(images_folder, output_folder, segmentation_model_path, tumor_image_paths)
