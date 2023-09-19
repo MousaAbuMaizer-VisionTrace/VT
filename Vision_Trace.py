@@ -115,19 +115,26 @@ def predict_images(input_folder, output_folder, model_path, tumor_image_paths):
                 img_basename = os.path.basename(max_voxel_img_path)
                 img_save_path = os.path.join(output_folder, img_basename)
                 os.makedirs(os.path.dirname(img_save_path), exist_ok=True)
-                cv2.imwrite(img_save_path, cv2.imread(max_voxel_img_path, cv2.IMREAD_GRAYSCALE))
-                mask_save_path = os.path.join(output_folder, 'mask_' + img_basename)
-                #cv2.imwrite(mask_save_path, max_voxel_mask)
+
+                original_img = cv2.imread(max_voxel_img_path, cv2.IMREAD_COLOR)
+                resized_mask = cv2.resize(max_voxel_mask, (original_img.shape[1], original_img.shape[0]))
+
+                resized_mask = cv2.resize(max_voxel_mask, (original_img.shape[1], original_img.shape[0]))
+
+                red_mask = np.zeros((resized_mask.shape[0], resized_mask.shape[1], 3), dtype=resized_mask.dtype)
+                red_mask[resized_mask == 255] = [0, 0, 255]
+
+                alpha = 0.5 
+                cv2.addWeighted(red_mask, alpha, original_img, 1 - alpha, 0, original_img)
+                cv2.imwrite(img_save_path, original_img)
         else:
             print("No Tumor has been found.")
-        
-        return max_voxel_img_path
+
+        return max_voxel_img_path , max_voxel_count
 
     except Exception as e:
         logging.error(f"Error in prediction: {str(e)}")
         raise
-
-
 
 ####################  U_Net Model Architecture  ####################
 
@@ -186,9 +193,13 @@ def built_unet_model(img_size, num_classes):
 ############################# Flask Code ################################
 app = Flask(__name__, static_folder='/var/www/html/Vision_Trace/Processed-Scans')
 
+@app.route('/')
+def hello():
+    return 'Hello, World!'
+
 @app.route('/app/process/<id>/<filename>', methods=['GET'])
 def send_image(id, filename):
-    print(f"Attempting to send image for ID: {id}, Filename: {filename}")  # This will log in the console
+    print(f"Attempting to send image for ID: {id}, Filename: {filename}")  
     try:
         return send_from_directory(os.path.join('/var/www/html/Vision_Trace/Processed-Scans', id), filename)
     except Exception as e:
@@ -206,11 +217,9 @@ def vision_trace():
     zip_file_path = data['zip_file_path']
     root_folder = os.path.join('/var/www/html/Vision_Trace/Scans', id)
 
-    # Ensure the directory exists
     if not os.path.exists(root_folder):
         os.makedirs(root_folder)
 
-    # If it's a public link, download to a temp location and get original zip filename from URL
     original_zip_name = None
     if zip_file_path.startswith("http"):
         temp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -221,20 +230,17 @@ def vision_trace():
             temp_file.write(chunk)
         temp_file.close()
         zip_file_path = temp_file.name
-        original_zip_name = os.path.basename(response.url).split("?")[0]  # Get filename, discard query parameters
+        original_zip_name = os.path.basename(response.url).split("?")[0]  
 
-    # Extract and then remove the zip file if it's a temp file
     with ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(root_folder)
     if zip_file_path == temp_file.name:
         os.remove(zip_file_path)
 
-    # Use original_zip_name if it exists (i.e. was a URL download), otherwise derive from path
     zip_name = original_zip_name or Path(zip_file_path).stem
     potential_subfolder = os.path.join(root_folder, zip_name)
     images_folder = potential_subfolder if os.path.exists(potential_subfolder) else root_folder
 
-    # Set the output_folder directly to the id
     output_folder = os.path.join('/var/www/html/Vision_Trace/Processed-Scans', id)
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
@@ -244,16 +250,17 @@ def vision_trace():
         segmentation_model_path = '/var/www/html/Vision_Trace/Model_Save_Weight/Segmentation_model.hdf5'
 
         tumor_image_paths = classify_images_batch(images_folder, classification_model_path)
-        max_voxel_img_path = predict_images(images_folder, output_folder, segmentation_model_path, tumor_image_paths)
+        max_voxel_img_path, max_voxel_count= predict_images(images_folder, output_folder, segmentation_model_path, tumor_image_paths)
 
         image_path = os.path.join(output_folder, os.path.basename(max_voxel_img_path)) if max_voxel_img_path else None
 
         response = {}
-
+        print(max_voxel_count)
         if image_path is not None:
             relative_path = os.path.join('app/process', id, os.path.basename(max_voxel_img_path)).replace('\\', '/')
             response.update({
-                'tumor_image_link': f"http://35.188.12.148/{relative_path}"
+                'tumor_image_link': f"http://34.66.245.111/{relative_path}",
+                'highest_voxel_count': max_voxel_count
             })
         else:
             response.update({
@@ -261,11 +268,7 @@ def vision_trace():
             })
 
         return jsonify(response)
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-# if __name__ == '__main__':
-#     app.run(debug=True, host='0.0.0.0', port=5000)
-
 #########################################################################
